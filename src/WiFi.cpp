@@ -40,6 +40,8 @@ bool WiFiClass::setPersistent(bool persistent) {
   return EspAtDrv.sysPersistent(persistent);
 }
 
+#ifdef WIFIESPAT1
+//AT1
 uint8_t WiFiClass::status() {
   if (state == WL_NO_MODULE)
     return state;
@@ -75,6 +77,46 @@ uint8_t WiFiClass::status() {
   }
   return state;
 }
+#else
+//AT2
+uint8_t WiFiClass::status() {
+  if (state == WL_NO_MODULE)
+    return state;
+  int res = EspAtDrv.staStatus();
+  switch (res) {
+    case -1:
+      switch (EspAtDrv.getLastErrorCode()) {
+        case EspAtDrvError::NOT_INITIALIZED:
+        case EspAtDrvError::AT_NOT_RESPONDIG:
+          state = WL_NO_MODULE;
+          break;
+        default: // some temporary error?
+          break; // no change
+      }
+      break;
+    case 2:
+      state = WL_CONNECTED;
+      break;
+    case 3:
+      state = WL_CONNECTING;
+      break;
+    case 0: // inactive
+    case 1: // idle
+    case 4: // STA disconnected
+      switch (state) {
+        case WL_CONNECT_FAILED:
+          break; // no change
+        case WL_CONNECTED:
+          state = WL_CONNECTION_LOST;
+          break;
+        default:
+          state = WL_DISCONNECTED;
+      }
+  }
+  return state;
+}
+
+#endif
 
 bool WiFiClass::setAutoConnect(bool autoConnect) {
   return EspAtDrv.staAutoConnect(autoConnect);

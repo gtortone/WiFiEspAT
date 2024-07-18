@@ -37,6 +37,8 @@ const uint16_t MAX_SEND_LENGTH = 2048;
 const char OK[] PROGMEM = "OK";
 const char STATUS[] PROGMEM = "STATUS";
 const char AT_CIPSTATUS[] PROGMEM = "AT+CIPSTATUS";
+const char AT_CWSTATE[] PROGMEM = "AT+CWSTATE?";
+const char CWSTATE[] PROGMEM = "+CWSTATE";
 const char CIPSTATUS[] PROGMEM = "+CIPSTATUS";
 const char CIPSTA[] PROGMEM = "+CIPSTA";
 const char CIPAP[] PROGMEM = "+CIPAP";
@@ -76,6 +78,7 @@ bool EspAtDrvClass::init(Stream* _serial, int8_t resetPin) {
 }
 
 bool EspAtDrvClass::reset(int8_t resetPin) {
+
   maintain();
 
   LOG_INFO_PRINT_PREFIX();
@@ -94,8 +97,9 @@ bool EspAtDrvClass::reset(int8_t resetPin) {
     cmd->print(F("AT+RST"));
     readRX(PSTR("ready")); // can be missed
   }
-  // wait for module startup
-  delay(250);
+
+  sleep_ms(250);
+
   if (!simpleCommand(PSTR("ATE0")) || // turn off echo. must work
       !simpleCommand(PSTR("AT+CIPMUX=1")) ||  // Enable multiple connections.
       !simpleCommand(PSTR("AT+CIPRECVMODE=1"))) // Set TCP Receive Mode - passive
@@ -111,12 +115,15 @@ bool EspAtDrvClass::reset(int8_t resetPin) {
 
   // read default wifi mode
   cmd->print(F("AT+CWMODE?"));
-  if (!sendCommand(PSTR("+CWMODE")))
+  if (!sendCommand(PSTR("+CWMODE"))) 
     return false;
+
   wifiMode = buffer[strlen("+CWMODE:")] - 48;
-  if (!readOK())
+  if (!readOK()) 
     return false;
+
   wifiModeDef = wifiMode;
+
   return true;
 }
 
@@ -178,10 +185,18 @@ int EspAtDrvClass::staStatus() {
     return -1;
   }
 
+#ifndef WIFIESPAT2
   cmd->print((FSH_P) AT_CIPSTATUS);
   if (!sendCommand(STATUS))
     return -1;
   uint8_t status = buffer[strlen("STATUS:")] - 48;
+#else
+  cmd->print((FSH_P) AT_CWSTATE);
+  if (!sendCommand(CWSTATE))
+    return -1;
+  uint8_t status = buffer[strlen("+CWSTATE:")] - 48;
+#endif
+
   return readOK() ? status : -1;
 }
 
